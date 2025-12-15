@@ -16,19 +16,26 @@ export async function verifyLiffToken(request: NextRequest): Promise<{ userId: s
     // JWTをデコード（簡易実装）
     // 本番環境では LINE API の verifyIdToken エンドポイントを使用して検証する必要があります
     // https://developers.line.biz/ja/reference/line-login-api/#verify-id-token
-    const base64Url = idToken.split('.')[1];
+    const parts = idToken.split('.');
+    if (parts.length !== 3) {
+      return { userId: '', error: 'Invalid token format' };
+    }
+
+    const base64Url = parts[1];
     if (!base64Url) {
       return { userId: '', error: 'Invalid token format' };
     }
     
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      Buffer.from(base64, 'base64')
-        .toString()
-        .split('')
-        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    );
+    // Base64 URLデコード
+    let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    // パディングを追加
+    while (base64.length % 4) {
+      base64 += '=';
+    }
+
+    // Base64デコード
+    const decodedBuffer = Buffer.from(base64, 'base64');
+    const jsonPayload = decodedBuffer.toString('utf-8');
 
     const decoded = JSON.parse(jsonPayload) as any;
     
