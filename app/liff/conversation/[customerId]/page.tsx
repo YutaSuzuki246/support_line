@@ -254,8 +254,8 @@ export default function ConversationPage() {
 
   return (
     <div className="flex h-screen flex-col bg-gray-50">
-      {/* ヘッダー */}
-      <div className="flex items-center gap-3 border-b border-gray-200 bg-white p-4">
+      {/* ヘッダー（固定） */}
+      <div className="flex items-center gap-3 border-b border-gray-200 bg-white p-4 sticky top-0 z-10">
         <Button
           variant="outline"
           onClick={() => router.push('/liff/inbox')}
@@ -339,14 +339,14 @@ export default function ConversationPage() {
         </div>
       </div>
 
-      {/* 返信フォーム */}
-      <div className="border-t border-gray-200 bg-white p-4">
+      {/* 返信フォーム（固定） */}
+      <div className="border-t border-gray-200 bg-white p-4 sticky bottom-0">
         <div className="mb-2">
           <Select value={selectedTemplateId} onValueChange={handleTemplateSelect}>
             <SelectTrigger className="h-8 text-sm">
               <SelectValue placeholder="テンプレートを選択" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-[300px]">
               {templates.map((template) => (
                 <SelectItem key={template.id} value={template.id}>
                   {template.title}
