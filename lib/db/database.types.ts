@@ -427,6 +427,7 @@ export type Database = {
           line_user_id: string;
           name: string | null;
           profile_image_url: string | null;
+          role: string | null;
           created_at: string | null;
           last_accessed_at: string | null;
         };
@@ -435,6 +436,7 @@ export type Database = {
           line_user_id: string;
           name?: string | null;
           profile_image_url?: string | null;
+          role?: string | null;
           created_at?: string | null;
           last_accessed_at?: string | null;
         };
@@ -443,10 +445,361 @@ export type Database = {
           line_user_id?: string;
           name?: string | null;
           profile_image_url?: string | null;
+          role?: string | null;
           created_at?: string | null;
           last_accessed_at?: string | null;
         };
         Relationships: [];
+      };
+      questions: {
+        Row: {
+          id: string;
+          customer_id: string;
+          line_message_id: string | null;
+          content_type: string;
+          content_text: string | null;
+          content_url: string | null;
+          category: string | null;
+          difficulty: string | null;
+          status: string;
+          lock_version: number;
+          assigned_to: string | null;
+          sla_deadline: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          customer_id: string;
+          line_message_id?: string | null;
+          content_type: string;
+          content_text?: string | null;
+          content_url?: string | null;
+          category?: string | null;
+          difficulty?: string | null;
+          status?: string;
+          lock_version?: number;
+          assigned_to?: string | null;
+          sla_deadline?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          customer_id?: string;
+          line_message_id?: string | null;
+          content_type?: string;
+          content_text?: string | null;
+          content_url?: string | null;
+          category?: string | null;
+          difficulty?: string | null;
+          status?: string;
+          lock_version?: number;
+          assigned_to?: string | null;
+          sla_deadline?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'questions_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'customers';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'questions_assigned_to_fkey';
+            columns: ['assigned_to'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      templates: {
+        Row: {
+          id: string;
+          category: string;
+          title: string;
+          content: string;
+          variables: Json;
+          check_list: Json;
+          notes: string | null;
+          is_pinned: boolean;
+          is_active: boolean;
+          requires_approval: boolean;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          category: string;
+          title: string;
+          content: string;
+          variables?: Json;
+          check_list?: Json;
+          notes?: string | null;
+          is_pinned?: boolean;
+          is_active?: boolean;
+          requires_approval?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          category?: string;
+          title?: string;
+          content?: string;
+          variables?: Json;
+          check_list?: Json;
+          notes?: string | null;
+          is_pinned?: boolean;
+          is_active?: boolean;
+          requires_approval?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'templates_created_by_fkey';
+            columns: ['created_by'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      replies: {
+        Row: {
+          id: string;
+          question_id: string;
+          admin_user_id: string;
+          template_id: string | null;
+          reply_text: string;
+          original_template_text: string | null;
+          send_result: string;
+          error_message: string | null;
+          sent_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          question_id: string;
+          admin_user_id: string;
+          template_id?: string | null;
+          reply_text: string;
+          original_template_text?: string | null;
+          send_result?: string;
+          error_message?: string | null;
+          sent_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          question_id?: string;
+          admin_user_id?: string;
+          template_id?: string | null;
+          reply_text?: string;
+          original_template_text?: string | null;
+          send_result?: string;
+          error_message?: string | null;
+          sent_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'replies_question_id_fkey';
+            columns: ['question_id'];
+            isOneToOne: false;
+            referencedRelation: 'questions';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'replies_admin_user_id_fkey';
+            columns: ['admin_user_id'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'replies_template_id_fkey';
+            columns: ['template_id'];
+            isOneToOne: false;
+            referencedRelation: 'templates';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      escalations: {
+        Row: {
+          id: string;
+          question_id: string;
+          escalated_by: string;
+          escalated_to: string | null;
+          reason: string;
+          staff_summary: string | null;
+          points: string | null;
+          missing_info: string | null;
+          status: string;
+          first_reply_sent: boolean;
+          created_at: string;
+          resolved_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          question_id: string;
+          escalated_by: string;
+          escalated_to?: string | null;
+          reason: string;
+          staff_summary?: string | null;
+          points?: string | null;
+          missing_info?: string | null;
+          status?: string;
+          first_reply_sent?: boolean;
+          created_at?: string;
+          resolved_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          question_id?: string;
+          escalated_by?: string;
+          escalated_to?: string | null;
+          reason?: string;
+          staff_summary?: string | null;
+          points?: string | null;
+          missing_info?: string | null;
+          status?: string;
+          first_reply_sent?: boolean;
+          created_at?: string;
+          resolved_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'escalations_question_id_fkey';
+            columns: ['question_id'];
+            isOneToOne: false;
+            referencedRelation: 'questions';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'escalations_escalated_by_fkey';
+            columns: ['escalated_by'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'escalations_escalated_to_fkey';
+            columns: ['escalated_to'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      question_notes: {
+        Row: {
+          id: string;
+          question_id: string;
+          user_id: string;
+          note_text: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          question_id: string;
+          user_id: string;
+          note_text: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          question_id?: string;
+          user_id?: string;
+          note_text?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'question_notes_question_id_fkey';
+            columns: ['question_id'];
+            isOneToOne: false;
+            referencedRelation: 'questions';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'question_notes_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      question_messages: {
+        Row: {
+          id: string;
+          question_id: string;
+          line_message_id: string;
+          content_type: string;
+          content_text: string | null;
+          content_url: string | null;
+          sender_type: string;
+          customer_id: string | null;
+          admin_user_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          question_id: string;
+          line_message_id: string;
+          content_type: string;
+          content_text?: string | null;
+          content_url?: string | null;
+          sender_type: string;
+          customer_id?: string | null;
+          admin_user_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          question_id?: string;
+          line_message_id?: string;
+          content_type?: string;
+          content_text?: string | null;
+          content_url?: string | null;
+          sender_type?: string;
+          customer_id?: string | null;
+          admin_user_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'question_messages_question_id_fkey';
+            columns: ['question_id'];
+            isOneToOne: false;
+            referencedRelation: 'questions';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'question_messages_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'customers';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'question_messages_admin_user_id_fkey';
+            columns: ['admin_user_id'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+        ];
       };
     };
     Views: {

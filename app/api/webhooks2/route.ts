@@ -6,6 +6,8 @@ import {
   updateCustomerByLineUserId,
   updateLastAccessedCustomer,
 } from '@/lib/db/customers';
+import { createQuestion } from '@/lib/db/questions';
+import { createQuestionMessage } from '@/lib/db/questionMessages';
 import { handleSampleReply } from '@/components/line/SampleReply';
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -59,25 +61,27 @@ async function upsertCustomerFromProfile(userId: string, name: string, profileIm
   const { data: existingCustomer, error: selectError } = await getCustomerByLineUserId(userId);
   if (selectError && selectError.code !== 'PGRST116') {
     console.error('既存カスタマー確認エラー:', selectError);
-    return;
+    return null;
   }
   if (existingCustomer) {
     // 既存カスタマー：最終アクセス情報を更新
     console.log('既存カスタマーを更新中...');
-    const { error: updateError } = await updateCustomerByLineUserId(userId, {
+    const { data: updatedCustomer, error: updateError } = await updateCustomerByLineUserId(userId, {
       name: name,
       profile_image_url: profileImageUrl,
       last_accessed_at: new Date().toISOString(),
     });
     if (updateError) {
       console.error('カスタマー更新エラー:', updateError);
+      return existingCustomer; // エラーでも既存データを返す
     } else {
       console.log('カスタマー情報を更新しました');
+      return updatedCustomer || existingCustomer;
     }
   } else {
     // 新規カスタマー：登録
     console.log('新規カスタマーを作成中...');
-    const { error: insertError } = await createCustomer({
+    const { data: newCustomer, error: insertError } = await createCustomer({
       line_user_id: userId,
       name: name,
       profile_image_url: profileImageUrl,
@@ -85,8 +89,10 @@ async function upsertCustomerFromProfile(userId: string, name: string, profileIm
     });
     if (insertError) {
       console.error('新規カスタマー作成エラー:', insertError);
+      return null;
     } else {
       console.log('新規カスタマーを作成しました');
+      return newCustomer;
     }
   }
 }
@@ -141,7 +147,66 @@ export async function POST(req: NextRequest) {
           const name = profile.displayName || 'Unknown Customer';
           const profileImageUrl = profile.pictureUrl || null;
           // カスタマー作成・更新処理を呼び出し
-          await upsertCustomerFromProfile(userId, name, profileImageUrl);
+          const customer = await upsertCustomerFromProfile(userId, name, profileImageUrl);
+          if (!customer) {
+            console.error('カスタマーの作成・更新に失敗しました');
+            continue;
+          }
+
+          // メッセージタイプに応じて質問チケットを作成
+          const message = event.message;
+          if (message) {
+            let contentType = 'text';
+            let contentText = '';
+            let lineMessageId = message.id || '';
+
+            if (message.type === 'text') {
+              contentType = 'text';
+              contentText = message.text || '';
+            } else if (message.type === 'image') {
+              contentType = 'image';
+              lineMessageId = message.id || '';
+              // TODO: 画像の場合は後でコンテンツ取得APIを呼び出してStorageに保存
+            } else if (message.type === 'file') {
+              contentType = 'file';
+              lineMessageId = message.id || '';
+            } else {
+              // その他のメッセージタイプはスキップ（または適切に処理）
+              console.log('未対応のメッセージタイプ:', message.type);
+              continue;
+            }
+
+            // 質問チケットを作成
+            const { data: question, error: questionError } = await createQuestion({
+              customer_id: customer.id,
+              line_message_id: lineMessageId,
+              content_type: contentType,
+              content_text: contentText,
+              status: 'unreplied',
+            });
+
+            if (questionError) {
+              console.error('質問チケット作成エラー:', questionError);
+            } else if (question) {
+              console.log('質問チケットを作成しました:', question.id);
+
+              // question_messagesにも保存
+              const { error: messageError } = await createQuestionMessage({
+                question_id: question.id,
+                line_message_id: lineMessageId,
+                content_type: contentType,
+                content_text: contentText,
+                sender_type: 'customer',
+                customer_id: customer.id,
+                admin_user_id: null,
+              });
+
+              if (messageError) {
+                console.error('質問メッセージ作成エラー:', messageError);
+              }
+            }
+          }
+
           for (const handler of messageReplyHandlers) {
             const handled = await handler({
               replyToken: event.replyToken,

@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { initLiff, isLoggedIn, getProfile } from '@/lib/liffClient';
+import { initLiff, isLoggedIn, getProfile, getIDToken } from '@/lib/liffClient';
 import { Heading1 } from '@/components/ui/typography';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import Link from 'next/link';
 
 type Profile = {
   userId: string;
@@ -13,11 +14,26 @@ type Profile = {
   statusMessage?: string;
 };
 
+type Question = {
+  id: string;
+  customer_id: string;
+  content_text: string | null;
+  status: string;
+  created_at: string;
+  customer?: {
+    name: string | null;
+    line_user_id: string;
+  };
+};
+
 export default function InboxPage() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [idToken, setIdToken] = useState<string | null>(null);
 
   useEffect(() => {
     const init = async () => {
@@ -32,6 +48,14 @@ export default function InboxPage() {
           try {
             const profileData = await getProfile();
             setProfile(profileData);
+            
+            // IDトークンを取得
+            const token = getIDToken();
+            if (token) {
+              setIdToken(token);
+              // 未返信一覧を取得
+              await fetchQuestions(token);
+            }
           } catch (profileError) {
             console.error('プロフィール取得エラー:', profileError);
             setError('プロフィールの取得に失敗しました');
@@ -40,11 +64,50 @@ export default function InboxPage() {
       } catch (error) {
         console.error('LIFF初期化エラー:', error);
         setError('LIFFの初期化に失敗しました');
+      } finally {
+        setLoading(false);
       }
     };
 
     init();
   }, []);
+
+  const fetchQuestions = async (token: string) => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/questions?status=unreplied', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to fetch questions');
+      }
+
+      const data = await res.json();
+      setQuestions(data.questions || []);
+    } catch (err) {
+      console.error('質問取得エラー:', err);
+      setError('質問の取得に失敗しました');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'たった今';
+    if (diffMins < 60) return `${diffMins}分前`;
+    if (diffHours < 24) return `${diffHours}時間前`;
+    return `${diffDays}日前`;
+  };
 
   if (!isInitialized) {
     return (
@@ -91,6 +154,16 @@ export default function InboxPage() {
     );
   }
 
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <p>読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="mx-auto max-w-4xl">
@@ -101,14 +174,50 @@ export default function InboxPage() {
           )}
         </div>
 
-        <Card className="p-6">
-          <div className="text-center py-8">
-            <p className="text-gray-600 mb-4">未返信の質問はありません</p>
-            <p className="text-sm text-gray-500">質問が届くとここに表示されます</p>
-          </div>
+        {error && (
+          <Card className="mb-4 border-red-200 bg-red-50 p-4">
+            <p className="text-red-600">{error}</p>
+          </Card>
+        )}
 
-          {/* TODO: 未返信一覧の実装 */}
-          {/* TODO: APIから質問データを取得して表示 */}
+        <Card className="p-6">
+          {questions.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-600 mb-4">未返信の質問はありません</p>
+              <p className="text-sm text-gray-500">質問が届くとここに表示されます</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {questions.map((question) => (
+                <Link
+                  key={question.id}
+                  href={`/liff/thread/${question.id}`}
+                  className="block rounded-lg border border-gray-200 bg-white p-4 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="mb-2 flex items-center gap-2">
+                        <span className="font-semibold text-gray-900">
+                          {question.customer?.name || '名前不明'}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {formatTimeAgo(question.created_at)}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 line-clamp-2">
+                        {question.content_text || '（テキストなし）'}
+                      </p>
+                    </div>
+                    <div className="ml-4">
+                      <span className="inline-flex items-center rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-800">
+                        未返信
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </Card>
       </div>
     </div>
