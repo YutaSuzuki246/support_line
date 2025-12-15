@@ -103,23 +103,31 @@ support_line/
 
 ## LINE Webhook の設定
 
-### アカウント1（users テーブル用）
+### アカウント1（users テーブル用・返信用アカウント）
 
 - Webhook URL: `https://your-domain.com/api/webhooks`
 - 環境変数: `LINE_CHANNEL_ACCESS_TOKEN`, `LINE_CHANNEL_SECRET`
+- リッチメニュー: `LINE_SAMPLE_RICHMENU1` を使用（返信管理画面へのリンク）
 
-### アカウント2（customers テーブル用）
+### アカウント2（customers テーブル用・質問用アカウント）
 
 - Webhook URL: `https://your-domain.com/api/webhooks2`
 - 環境変数: `LINE_CHANNEL_ACCESS_TOKEN2`, `LINE_CHANNEL_SECRET2`
 
+## LIFF設定
+
+- LIFF ID: `NEXT_PUBLIC_LIFF_ID`（LINE Developers コンソールで取得）
+- 返信管理画面URL: `NEXT_PUBLIC_LIFF_REPLY_URL`（例: `https://liff.line.me/your_liff_id/inbox`）
+
 ## リッチメニュー
 
-### リッチメニュー1
+### リッチメニュー1（返信用アカウント用）
 
 - サイズ: 1200×810 ピクセル
 - 全体が1つのクリックエリア
+- タップで返信管理画面（LIFF）を開く
 - デフォルトで友だち追加時に設定
+- URL: `NEXT_PUBLIC_LIFF_REPLY_URL` 環境変数から取得
 
 ### リッチメニュー2
 

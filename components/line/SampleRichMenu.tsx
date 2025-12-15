@@ -192,17 +192,20 @@ export async function deleteAllRichMenus(LINE_CHANNEL_ACCESS_TOKEN: string) {
 
 /**
  * リッチメニュー1を作成する（割り当てはしない）
+ * 返信用アカウント用のリッチメニュー（返信ページへのリンク）
  */
 export async function createRichMenu1(LINE_CHANNEL_ACCESS_TOKEN: string) {
+  const replyUrl = process.env.NEXT_PUBLIC_LIFF_REPLY_URL || 'https://liff.line.me/your-liff-id/inbox';
+  
   const richMenuBody = {
     size: { width: 1200, height: 810 },
     selected: true,
     name: 'richmenu1',
-    chatBarText: 'リッチメニュー1',
+    chatBarText: '返信管理',
     areas: [
       {
         bounds: { x: 0, y: 0, width: 1200, height: 810 },
-        action: { type: 'uri', uri: 'https://example.com' }
+        action: { type: 'uri', uri: replyUrl }
       }
     ]
   };
