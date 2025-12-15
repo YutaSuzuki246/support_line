@@ -152,8 +152,6 @@ export default function ConversationPage() {
       
       // 各変数を処理
       templateVariables.forEach((variable) => {
-        const placeholder = `{${variable}}`;
-        
         // 基本的な変数は自動置換
         switch (variable) {
           case 'name':
@@ -163,12 +161,12 @@ export default function ConversationPage() {
             break;
           // その他の変数はプレースホルダーのまま残す（ユーザーが手動編集できるように）
           default:
-            // 変数名を日本語に変換して説明を追加（オプション）
-            // 例: {answer_content} → {answer_content: 回答内容を入力してください}
             break;
         }
       });
       
+      // \nを実際の改行文字として処理（テキストエリアでは自動的に処理されるが、明示的に処理）
+      // テキストエリアにはそのまま設定すれば、\nが改行として表示される
       setReplyText(processedContent);
     }
   };
@@ -345,7 +343,7 @@ export default function ConversationPage() {
                     : 'bg-gray-200 text-gray-900'
                 }`}
               >
-                <p className="text-sm whitespace-pre-wrap">
+                <p className="text-sm whitespace-pre-wrap break-words">
                   {message.content_text || '（テキストなし）'}
                 </p>
                 <p
