@@ -87,25 +87,29 @@ export type Database = {
       customers: {
         Row: {
           id: string;
-          stripe_customer_id: string | null;
+          line_user_id: string;
+          name: string | null;
+          profile_image_url: string | null;
+          created_at: string | null;
+          last_accessed_at: string | null;
         };
         Insert: {
-          id: string;
-          stripe_customer_id?: string | null;
+          id?: string;
+          line_user_id: string;
+          name?: string | null;
+          profile_image_url?: string | null;
+          created_at?: string | null;
+          last_accessed_at?: string | null;
         };
         Update: {
           id?: string;
-          stripe_customer_id?: string | null;
+          line_user_id?: string;
+          name?: string | null;
+          profile_image_url?: string | null;
+          created_at?: string | null;
+          last_accessed_at?: string | null;
         };
-        Relationships: [
-          {
-            foreignKeyName: "customers_id_fkey";
-            columns: ["id"];
-            isOneToOne: true;
-            referencedRelation: "users";
-            referencedColumns: ["id"];
-          },
-        ];
+        Relationships: [];
       };
       messages: {
         Row: {
