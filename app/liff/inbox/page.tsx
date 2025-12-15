@@ -20,6 +20,9 @@ type Conversation = {
     name: string | null;
     line_user_id: string;
     profile_image_url: string | null;
+    has_unreplied_messages: boolean | null;
+    last_admin_reply_at: string | null;
+    last_customer_message_at: string | null;
   };
   latest_message: {
     content_text: string | null;
@@ -227,9 +230,9 @@ export default function InboxPage() {
                         <span className="font-semibold text-gray-900 truncate">
                           {conversation.customer.name || '名前不明'}
                         </span>
-                        {conversation.unreplied_count > 0 && (
+                        {conversation.customer.has_unreplied_messages && (
                           <span className="inline-flex items-center rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-800 ml-2 flex-shrink-0">
-                            {conversation.unreplied_count}
+                            未返信
                           </span>
                         )}
                       </div>
@@ -239,11 +242,13 @@ export default function InboxPage() {
                             {conversation.latest_message.content_text || '（テキストなし）'}
                           </p>
                           <div className="flex items-center gap-2 text-xs text-gray-500">
-                            <span>{formatTimeAgo(conversation.latest_message.created_at)}</span>
-                            {conversation.last_replied_at && (
+                            {conversation.customer.last_customer_message_at && (
+                              <span>{formatTimeAgo(conversation.customer.last_customer_message_at)}</span>
+                            )}
+                            {conversation.customer.last_admin_reply_at && (
                               <>
                                 <span>•</span>
-                                <span>最終返信: {formatTimeAgo(conversation.last_replied_at)}</span>
+                                <span>最終返信: {formatTimeAgo(conversation.customer.last_admin_reply_at)}</span>
                               </>
                             )}
                           </div>

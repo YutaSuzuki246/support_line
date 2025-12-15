@@ -52,3 +52,41 @@ export async function updateLastAccessedCustomer(lineUserId: string) {
   return updateCustomerByLineUserId(lineUserId, { last_accessed_at: new Date().toISOString() });
 }
 
+/**
+ * 受講生がメッセージを送った時にcustomersテーブルを更新
+ */
+export async function updateCustomerOnMessage(customerId: string) {
+  return updateCustomerByLineUserId(
+    (await getCustomerById(customerId))?.data?.line_user_id || '',
+    {
+      last_customer_message_at: new Date().toISOString(),
+      has_unreplied_messages: true,
+    }
+  );
+}
+
+/**
+ * 運営が返信した時にcustomersテーブルを更新
+ */
+export async function updateCustomerOnReply(customerId: string) {
+  return updateCustomerByLineUserId(
+    (await getCustomerById(customerId))?.data?.line_user_id || '',
+    {
+      last_admin_reply_at: new Date().toISOString(),
+      has_unreplied_messages: false,
+    }
+  );
+}
+
+/**
+ * customer_idからcustomerを取得
+ */
+export async function getCustomerById(id: string) {
+  const { data, error } = await supabase
+    .from('customers')
+    .select('*')
+    .eq('id', id)
+    .single();
+  return { data, error };
+}
+

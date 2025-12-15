@@ -92,6 +92,9 @@ export type Database = {
           profile_image_url: string | null;
           created_at: string | null;
           last_accessed_at: string | null;
+          has_unreplied_messages: boolean | null;
+          last_admin_reply_at: string | null;
+          last_customer_message_at: string | null;
         };
         Insert: {
           id?: string;
@@ -100,6 +103,9 @@ export type Database = {
           profile_image_url?: string | null;
           created_at?: string | null;
           last_accessed_at?: string | null;
+          has_unreplied_messages?: boolean | null;
+          last_admin_reply_at?: string | null;
+          last_customer_message_at?: string | null;
         };
         Update: {
           id?: string;
@@ -108,6 +114,9 @@ export type Database = {
           profile_image_url?: string | null;
           created_at?: string | null;
           last_accessed_at?: string | null;
+          has_unreplied_messages?: boolean | null;
+          last_admin_reply_at?: string | null;
+          last_customer_message_at?: string | null;
         };
         Relationships: [];
       };

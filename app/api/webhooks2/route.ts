@@ -5,6 +5,7 @@ import {
   createCustomer,
   updateCustomerByLineUserId,
   updateLastAccessedCustomer,
+  updateCustomerOnMessage,
 } from '@/lib/db/customers';
 import { createQuestion } from '@/lib/db/questions';
 import { createQuestionMessage } from '@/lib/db/questionMessages';
@@ -203,6 +204,9 @@ export async function POST(req: NextRequest) {
 
               if (messageError) {
                 console.error('質問メッセージ作成エラー:', messageError);
+              } else {
+                // customersテーブルを更新（最後のメッセージ時刻、未返信フラグ）
+                await updateCustomerOnMessage(customer.id);
               }
             }
           }

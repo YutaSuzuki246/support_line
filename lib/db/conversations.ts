@@ -9,96 +9,67 @@ const supabase = createClient<Database>(supabaseUrl, supabaseServiceRoleKey);
  * 受講生との会話一覧を取得（最新メッセージ、未返信数を含む）
  */
 export async function getConversations(hasUnreplied = true) {
-  // まず、メッセージがあるcustomerを取得
-  const { data: messages, error: messagesError } = await supabase
-    .from('question_messages')
-    .select('customer_id')
-    .not('customer_id', 'is', null)
-    .order('created_at', { ascending: false });
-
-  if (messagesError) {
-    return { data: null, error: messagesError };
-  }
-
-  const customerIds = Array.from(
-    new Set(messages?.map((m) => m.customer_id).filter((id): id is string => Boolean(id)) || [])
-  );
-
-  if (customerIds.length === 0) {
-    return { data: [], error: null };
-  }
-
-  // customer情報と最新メッセージ、未返信数を取得
-  const { data: customers, error: customersError } = await supabase
+  // customer情報を取得（メッセージがあるもののみ）
+  let customersQuery = supabase
     .from('customers')
-    .select('*')
-    .in('id', customerIds);
+    .select('*');
+
+  // 未返信があるもののみフィルタ
+  if (hasUnreplied) {
+    customersQuery = customersQuery.eq('has_unreplied_messages', true);
+  }
+
+  // メッセージがあるcustomerのみ（last_customer_message_atがnullでない）
+  customersQuery = customersQuery.not('last_customer_message_at', 'is', null);
+
+  // 最新メッセージ時刻でソート
+  customersQuery = customersQuery.order('last_customer_message_at', { ascending: false });
+
+  const { data: customers, error: customersError } = await customersQuery;
 
   if (customersError) {
     return { data: null, error: customersError };
   }
 
-  // 各customerの最新メッセージと未返信数を取得
+  if (!customers || customers.length === 0) {
+    return { data: [], error: null };
+  }
+
+  // 各customerの最新メッセージを取得
   const conversations = await Promise.all(
-    (customers || []).map(async (customer) => {
-      // 最新メッセージを取得
-      const { data: latestMessage } = await supabase
-        .from('question_messages')
-        .select('*, customer:customers(*), admin_user:users(*)')
-        .eq('customer_id', customer.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      // 未返信の質問数を取得
-      const { count: unrepliedCount } = await supabase
+    customers.map(async (customer) => {
+      // customerに関連するquestion_idsを取得
+      const { data: questions } = await supabase
         .from('questions')
-        .select('*', { count: 'exact', head: true })
-        .eq('customer_id', customer.id)
-        .eq('status', 'unreplied');
+        .select('id')
+        .eq('customer_id', customer.id);
 
-      // 未返信の質問リストを取得
-      const { data: unrepliedQuestions } = await supabase
-        .from('questions')
-        .select('*')
-        .eq('customer_id', customer.id)
-        .eq('status', 'unreplied')
-        .order('created_at', { ascending: false });
+      const questionIds = questions?.map((q) => q.id) || [];
 
-      // 最後に返信した時刻を取得
-      const { data: lastReply } = await supabase
-        .from('question_messages')
-        .select('created_at')
-        .eq('customer_id', customer.id)
-        .eq('sender_type', 'admin')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+      let latestMessage = null;
+      if (questionIds.length > 0) {
+        // 最新メッセージを取得
+        const { data: allMessages } = await supabase
+          .from('question_messages')
+          .select('*, customer:customers(*), admin_user:users(*)')
+          .in('question_id', questionIds)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        latestMessage = allMessages?.[0] || null;
+      }
 
       return {
         customer,
-        latest_message: latestMessage || null,
-        unreplied_count: unrepliedCount || 0,
-        unreplied_questions: unrepliedQuestions || [],
-        last_replied_at: lastReply?.created_at || null,
+        latest_message: latestMessage,
+        unreplied_count: customer.has_unreplied_messages ? 1 : 0,
+        unreplied_questions: [], // customersテーブルで管理するため空配列
+        last_replied_at: customer.last_admin_reply_at || null,
       };
     })
   );
 
-  // 未返信があるもののみフィルタ
-  let filtered = conversations;
-  if (hasUnreplied) {
-    filtered = conversations.filter((conv) => conv.unreplied_count > 0);
-  }
-
-  // 最新メッセージの時刻でソート
-  filtered.sort((a, b) => {
-    const aTime = a.latest_message?.created_at || '';
-    const bTime = b.latest_message?.created_at || '';
-    return bTime.localeCompare(aTime);
-  });
-
-  return { data: filtered, error: null };
+  return { data: conversations, error: null };
 }
 
 /**
@@ -116,30 +87,47 @@ export async function getConversationByCustomerId(customerId: string) {
     return { data: null, error: customerError };
   }
 
-  // 全会話履歴を取得
+  // 全会話履歴を取得（questionsテーブルをJOINしてcustomerに関連する全メッセージを取得）
+  // まず、customerに関連するquestion_idsを取得
+  const { data: questions, error: questionsError } = await supabase
+    .from('questions')
+    .select('id')
+    .eq('customer_id', customerId);
+
+  if (questionsError) {
+    return { data: null, error: questionsError };
+  }
+
+  const questionIds = questions?.map((q) => q.id) || [];
+
+  if (questionIds.length === 0) {
+    return {
+      data: {
+        customer,
+        messages: [],
+        unreplied_questions: [],
+      },
+      error: null,
+    };
+  }
+
+  // question_idsを使ってメッセージを取得
   const { data: messages, error: messagesError } = await supabase
     .from('question_messages')
     .select('*, customer:customers(*), admin_user:users(*)')
-    .eq('customer_id', customerId)
+    .in('question_id', questionIds)
     .order('created_at', { ascending: true });
 
   if (messagesError) {
     return { data: null, error: messagesError };
   }
 
-  // 未返信の質問を取得
-  const { data: unrepliedQuestions } = await supabase
-    .from('questions')
-    .select('*')
-    .eq('customer_id', customerId)
-    .eq('status', 'unreplied')
-    .order('created_at', { ascending: false });
-
+  // 未返信の質問はcustomersテーブルで管理するため、空配列を返す
   return {
     data: {
       customer,
       messages: messages || [],
-      unreplied_questions: unrepliedQuestions || [],
+      unreplied_questions: [], // customersテーブルで管理
     },
     error: null,
   };

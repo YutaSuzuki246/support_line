@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyLiffToken } from "@/lib/auth/liff";
 import { getConversationByCustomerId } from "@/lib/db/conversations";
+import { updateCustomerOnReply } from "@/lib/db/customers";
 import { createQuestionMessage } from "@/lib/db/questionMessages";
 import { updateQuestion } from "@/lib/db/questions";
 import {
@@ -53,33 +54,38 @@ export async function POST(
     }
 
     const customer = conversation.data.customer;
-    const unrepliedQuestions = conversation.data.unreplied_questions || [];
-
+    
     // 返信対象のquestion_idを決定
     // 1. questionIdが指定されていればそれを使用
-    // 2. 未返信質問があれば、最も古いものを使用
+    // 2. 最も新しいquestionを使用（customersテーブルで未返信管理するため、最新のquestionを使用）
     // 3. どちらもなければ、新しいquestionを作成
     let targetQuestionId: string;
     if (questionId) {
       targetQuestionId = questionId;
-    } else if (unrepliedQuestions.length > 0) {
-      // 最も古い未返信質問を使用
-      targetQuestionId = unrepliedQuestions[unrepliedQuestions.length - 1].id;
     } else {
-      // 新しいquestionを作成（会話継続のため）
-      const { createQuestion } = await import("@/lib/db/questions");
-      const newQuestion = await createQuestion({
-        customer_id: customerId,
-        content_type: "text",
-        status: "replied", // 返信と同時にrepliedにする
-      });
-      if (newQuestion.error || !newQuestion.data) {
-        return NextResponse.json(
-          { error: "Failed to create question" },
-          { status: 500 }
-        );
+      // customerに関連する最新のquestionを取得
+      const { getQuestionsByCustomerId } = await import("@/lib/db/questions");
+      const { data: customerQuestions } = await getQuestionsByCustomerId(customerId);
+      
+      if (customerQuestions && customerQuestions.length > 0) {
+        // 最新のquestionを使用
+        targetQuestionId = customerQuestions[0].id;
+      } else {
+        // 新しいquestionを作成（会話継続のため）
+        const { createQuestion } = await import("@/lib/db/questions");
+        const newQuestion = await createQuestion({
+          customer_id: customerId,
+          content_type: "text",
+          status: "replied", // 返信と同時にrepliedにする
+        });
+        if (newQuestion.error || !newQuestion.data) {
+          return NextResponse.json(
+            { error: "Failed to create question" },
+            { status: 500 }
+          );
+        }
+        targetQuestionId = newQuestion.data.id;
       }
-      targetQuestionId = newQuestion.data.id;
     }
 
     // 返信レコードを作成（送信前に作成）
@@ -154,10 +160,11 @@ export async function POST(
         admin_user_id: user.id,
       });
 
-      // 質問のステータスを'replied'に更新
-      if (unrepliedQuestions.some((q) => q.id === targetQuestionId)) {
-        await updateQuestion(targetQuestionId, { status: "replied" });
-      }
+      // customersテーブルを更新（最後の返信時刻、未返信フラグをfalseに）
+      await updateCustomerOnReply(customerId);
+
+      // 質問のステータスを'replied'に更新（履歴・分析用）
+      await updateQuestion(targetQuestionId, { status: "replied" });
 
       return NextResponse.json({
         success: true,

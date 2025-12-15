@@ -13,6 +13,9 @@ type Customer = {
   name: string | null;
   line_user_id: string;
   profile_image_url: string | null;
+  has_unreplied_messages: boolean | null;
+  last_admin_reply_at: string | null;
+  last_customer_message_at: string | null;
 };
 
 type Message = {
@@ -277,9 +280,9 @@ export default function ConversationPage() {
           <p className="font-semibold text-gray-900">
             {conversation.customer.name || '名前不明'}
           </p>
-          {conversation.unreplied_questions.length > 0 && (
+          {conversation.customer.has_unreplied_messages && (
             <p className="text-xs text-orange-600">
-              {conversation.unreplied_questions.length}件の未返信質問
+              未返信あり
             </p>
           )}
         </div>
