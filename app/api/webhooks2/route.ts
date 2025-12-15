@@ -11,18 +11,40 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { setupRichMenu1ForUser } from '@/components/line/SampleRichMenu';
 
-const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN2!;
-const LINE_CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET2!;
+const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN2;
+const LINE_CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET2;
+
+if (!LINE_CHANNEL_ACCESS_TOKEN || !LINE_CHANNEL_SECRET) {
+  console.error('[Webhook2] 環境変数が設定されていません');
+  console.error('[Webhook2] LINE_CHANNEL_ACCESS_TOKEN2:', LINE_CHANNEL_ACCESS_TOKEN ? '設定済み' : '未設定');
+  console.error('[Webhook2] LINE_CHANNEL_SECRET2:', LINE_CHANNEL_SECRET ? '設定済み' : '未設定');
+}
 
 export const runtime = 'nodejs'; // Node.jsランタイムを指定（Edgeでは不可）
 
 // 署名検証（セキュリティ）
 function verifySignature(body: string, signature: string): boolean {
+  if (!LINE_CHANNEL_SECRET) {
+    console.error('[Webhook2] LINE_CHANNEL_SECRET2が設定されていません');
+    return false;
+  }
+  
   const hash = crypto
     .createHmac('SHA256', LINE_CHANNEL_SECRET)
     .update(body)
     .digest('base64');
-  return hash === signature;
+  
+  const isValid = hash === signature;
+  
+  if (!isValid) {
+    console.error('[Webhook2] 署名検証失敗');
+    console.error('[Webhook2] 期待されるハッシュ:', hash);
+    console.error('[Webhook2] 受信したハッシュ:', signature);
+    console.error('[Webhook2] ボディの長さ:', body.length);
+    console.error('[Webhook2] ボディの最初の100文字:', body.substring(0, 100));
+  }
+  
+  return isValid;
 }
 
 // 今後の拡張用: 応答ハンドラー配列
@@ -70,11 +92,22 @@ async function upsertCustomerFromProfile(userId: string, name: string, profileIm
 }
 
 export async function POST(req: NextRequest) {
+  // 環境変数の確認
+  if (!LINE_CHANNEL_ACCESS_TOKEN || !LINE_CHANNEL_SECRET) {
+    console.error('[Webhook2] 環境変数が設定されていません');
+    console.error('[Webhook2] LINE_CHANNEL_ACCESS_TOKEN2:', LINE_CHANNEL_ACCESS_TOKEN ? '設定済み' : '未設定');
+    console.error('[Webhook2] LINE_CHANNEL_SECRET2:', LINE_CHANNEL_SECRET ? '設定済み' : '未設定');
+    return new NextResponse('環境変数が設定されていません', { status: 500 });
+  }
+
   const rawBody = await req.text();
   const signature = req.headers.get('x-line-signature') ?? '';
 
+  console.log('[Webhook2] 受信した署名:', signature ? 'あり' : 'なし');
+  console.log('[Webhook2] ボディのサイズ:', rawBody.length);
+
   if (!verifySignature(rawBody, signature)) {
-    console.error('署名が不正です');
+    console.error('[Webhook2] 署名が不正です');
     return new NextResponse('署名が不正です', { status: 401 });
   }
 
