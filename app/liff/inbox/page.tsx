@@ -47,6 +47,7 @@ export default function InboxPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [idToken, setIdToken] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false); // 全ての会話を表示するか
 
   useEffect(() => {
     const init = async () => {
@@ -67,7 +68,7 @@ export default function InboxPage() {
             if (token) {
               setIdToken(token);
               // 会話一覧を取得
-              await fetchConversations(token);
+              await fetchConversations(token, showAll);
             }
           } catch (profileError) {
             console.error('プロフィール取得エラー:', profileError);
@@ -85,10 +86,13 @@ export default function InboxPage() {
     init();
   }, []);
 
-  const fetchConversations = async (token: string) => {
+  const fetchConversations = async (token: string, showAllConversations = false) => {
     try {
       setLoading(true);
-      const res = await fetch('/api/conversations?has_unreplied=true', {
+      const url = showAllConversations 
+        ? '/api/conversations?has_unreplied=false'
+        : '/api/conversations?has_unreplied=true';
+      const res = await fetch(url, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -105,6 +109,14 @@ export default function InboxPage() {
       setError('会話の取得に失敗しました');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleToggleShowAll = async () => {
+    if (idToken) {
+      const newShowAll = !showAll;
+      setShowAll(newShowAll);
+      await fetchConversations(idToken, newShowAll);
     }
   };
 
@@ -181,7 +193,16 @@ export default function InboxPage() {
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="mx-auto max-w-4xl">
         <div className="mb-6">
-          <Heading1 className="mb-2">未返信一覧</Heading1>
+          <div className="flex items-center justify-between mb-2">
+            <Heading1>{showAll ? '全ての会話' : '未返信一覧'}</Heading1>
+            <Button
+              variant="outline"
+              onClick={handleToggleShowAll}
+              className="text-sm"
+            >
+              {showAll ? '未返信のみ' : '全て表示'}
+            </Button>
+          </div>
           {profile?.displayName && (
             <p className="text-gray-600">ようこそ、{profile.displayName}さん</p>
           )}
@@ -196,7 +217,9 @@ export default function InboxPage() {
         <Card className="p-6">
           {conversations.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-gray-600 mb-4">未返信の会話はありません</p>
+              <p className="text-gray-600 mb-4">
+                {showAll ? '会話がありません' : '未返信の会話はありません'}
+              </p>
               <p className="text-sm text-gray-500">質問が届くとここに表示されます</p>
             </div>
           ) : (

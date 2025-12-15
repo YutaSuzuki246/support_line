@@ -90,3 +90,16 @@ export async function getCustomerById(id: string) {
   return { data, error };
 }
 
+/**
+ * customerの担当者を更新
+ */
+export async function updateCustomerAssignedTo(customerId: string, userId: string | null) {
+  const { data, error } = await supabase
+    .from('customers')
+    .update({ assigned_to: userId })
+    .eq('id', customerId)
+    .select()
+    .single();
+  return { data, error };
+}
+

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
-import { getQuestionById, updateQuestionWithLock } from '@/lib/db/questions';
+import { getQuestionById } from '@/lib/db/questions';
 import { createReply, markReplyAsSuccess, markReplyAsFailed } from '@/lib/db/replies';
 import { createQuestionMessage } from '@/lib/db/questionMessages';
+import { updateCustomerOnReply } from '@/lib/db/customers';
 import { getUserByLineUserId } from '@/lib/db/users';
 import { verifyLiffToken } from '@/lib/auth/liff';
 
@@ -12,7 +13,7 @@ export const runtime = 'nodejs';
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // LIFF認証
@@ -27,36 +28,20 @@ export async function POST(
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const questionId = params.id;
-    const body = await req.json();
-    const { replyText, templateId, originalTemplateText } = body;
+    const { id: questionId } = await params;
+    const { replyText, templateId, originalTemplateText } = await req.json();
 
     if (!replyText) {
       return NextResponse.json({ error: 'replyText is required' }, { status: 400 });
     }
 
-    // 質問を取得（楽観ロック用のlock_versionも取得）
+    // 質問データを取得
     const question = await getQuestionById(questionId);
     if (question.error || !question.data) {
       return NextResponse.json({ error: 'Question not found' }, { status: 404 });
     }
 
     const questionData = question.data;
-    const expectedLockVersion = questionData.lock_version;
-
-    // ステータスを'replying'に更新（楽観ロック）
-    const updateResult = await updateQuestionWithLock(
-      questionId,
-      { status: 'replying' },
-      expectedLockVersion
-    );
-
-    if (updateResult.error || !updateResult.data) {
-      return NextResponse.json(
-        { error: 'Failed to lock question. Another user may be replying.', code: 'LOCK_FAILED' },
-        { status: 409 }
-      );
-    }
 
     // 返信レコードを作成（送信前に作成）
     const reply = await createReply({
@@ -105,12 +90,9 @@ export async function POST(
       if (!pushRes.ok) {
         const errorText = await pushRes.text();
         console.error('Push message failed:', errorText);
-        
+
         // 失敗を記録
         await markReplyAsFailed(replyId, errorText);
-        
-        // ステータスを元に戻す
-        await updateQuestionWithLock(questionId, { status: 'unreplied' }, expectedLockVersion + 1);
 
         return NextResponse.json(
           { error: 'Failed to send reply', details: errorText },
@@ -133,12 +115,8 @@ export async function POST(
         admin_user_id: user.id,
       });
 
-      // 質問のステータスを'replied'に更新
-      await updateQuestionWithLock(
-        questionId,
-        { status: 'replied' },
-        expectedLockVersion + 1
-      );
+      // customersテーブルを更新（最後の返信時刻、未返信フラグをfalseに）
+      await updateCustomerOnReply(questionData.customer_id);
 
       return NextResponse.json({
         success: true,
@@ -146,12 +124,9 @@ export async function POST(
       });
     } catch (error: any) {
       console.error('Reply send error:', error);
-      
+
       // 失敗を記録
       await markReplyAsFailed(replyId, error.message || 'Unknown error');
-      
-      // ステータスを元に戻す
-      await updateQuestionWithLock(questionId, { status: 'unreplied' }, expectedLockVersion + 1);
 
       return NextResponse.json(
         { error: 'Failed to send reply', details: error.message },
@@ -163,4 +138,3 @@ export async function POST(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
-

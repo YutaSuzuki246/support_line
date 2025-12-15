@@ -76,7 +76,6 @@ export async function POST(
         const newQuestion = await createQuestion({
           customer_id: customerId,
           content_type: "text",
-          status: "replied", // 返信と同時にrepliedにする
         });
         if (newQuestion.error || !newQuestion.data) {
           return NextResponse.json(
@@ -162,9 +161,6 @@ export async function POST(
 
       // customersテーブルを更新（最後の返信時刻、未返信フラグをfalseに）
       await updateCustomerOnReply(customerId);
-
-      // 質問のステータスを'replied'に更新（履歴・分析用）
-      await updateQuestion(targetQuestionId, { status: "replied" });
 
       return NextResponse.json({
         success: true,

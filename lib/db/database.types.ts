@@ -95,6 +95,7 @@ export type Database = {
           has_unreplied_messages: boolean | null;
           last_admin_reply_at: string | null;
           last_customer_message_at: string | null;
+          assigned_to: string | null;
         };
         Insert: {
           id?: string;
@@ -106,6 +107,7 @@ export type Database = {
           has_unreplied_messages?: boolean | null;
           last_admin_reply_at?: string | null;
           last_customer_message_at?: string | null;
+          assigned_to?: string | null;
         };
         Update: {
           id?: string;
@@ -117,8 +119,17 @@ export type Database = {
           has_unreplied_messages?: boolean | null;
           last_admin_reply_at?: string | null;
           last_customer_message_at?: string | null;
+          assigned_to?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'customers_assigned_to_fkey';
+            columns: ['assigned_to'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       messages: {
         Row: {
@@ -468,12 +479,6 @@ export type Database = {
           content_type: string;
           content_text: string | null;
           content_url: string | null;
-          category: string | null;
-          difficulty: string | null;
-          status: string;
-          lock_version: number;
-          assigned_to: string | null;
-          sla_deadline: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -484,12 +489,6 @@ export type Database = {
           content_type: string;
           content_text?: string | null;
           content_url?: string | null;
-          category?: string | null;
-          difficulty?: string | null;
-          status?: string;
-          lock_version?: number;
-          assigned_to?: string | null;
-          sla_deadline?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -500,12 +499,6 @@ export type Database = {
           content_type?: string;
           content_text?: string | null;
           content_url?: string | null;
-          category?: string | null;
-          difficulty?: string | null;
-          status?: string;
-          lock_version?: number;
-          assigned_to?: string | null;
-          sla_deadline?: string | null;
           created_at?: string;
           updated_at?: string;
         };

@@ -280,11 +280,20 @@ export default function ConversationPage() {
           <p className="font-semibold text-gray-900">
             {conversation.customer.name || '名前不明'}
           </p>
-          {conversation.customer.has_unreplied_messages && (
-            <p className="text-xs text-orange-600">
-              未返信あり
-            </p>
-          )}
+          <div className="flex flex-col gap-1">
+            {conversation.customer.has_unreplied_messages ? (
+              <p className="text-xs text-orange-600">未返信あり</p>
+            ) : conversation.customer.last_admin_reply_at && (
+              <p className="text-xs text-gray-500">
+                最終返信: {formatTime(conversation.customer.last_admin_reply_at)}
+              </p>
+            )}
+            {conversation.customer.last_customer_message_at && (
+              <p className="text-xs text-gray-400">
+                最新メッセージ: {formatTime(conversation.customer.last_customer_message_at)}
+              </p>
+            )}
+          </div>
         </div>
       </div>
 

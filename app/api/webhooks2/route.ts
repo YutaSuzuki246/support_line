@@ -177,13 +177,12 @@ export async function POST(req: NextRequest) {
               continue;
             }
 
-            // 質問チケットを作成
+            // 質問チケットを作成（statusはcustomersテーブルで管理）
             const { data: question, error: questionError } = await createQuestion({
               customer_id: customer.id,
               line_message_id: lineMessageId,
               content_type: contentType,
               content_text: contentText,
-              status: 'unreplied',
             });
 
             if (questionError) {
