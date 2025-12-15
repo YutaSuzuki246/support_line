@@ -14,16 +14,26 @@ type Profile = {
   statusMessage?: string;
 };
 
-type Question = {
-  id: string;
-  customer_id: string;
-  content_text: string | null;
-  status: string;
-  created_at: string;
-  customer?: {
+type Conversation = {
+  customer: {
+    id: string;
     name: string | null;
     line_user_id: string;
+    profile_image_url: string | null;
   };
+  latest_message: {
+    content_text: string | null;
+    created_at: string;
+    sender_type: string;
+  } | null;
+  unreplied_count: number;
+  unreplied_questions: Array<{
+    id: string;
+    content_text: string | null;
+    created_at: string;
+    status: string;
+  }>;
+  last_replied_at: string | null;
 };
 
 export default function InboxPage() {
@@ -31,7 +41,7 @@ export default function InboxPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [idToken, setIdToken] = useState<string | null>(null);
 
@@ -53,8 +63,8 @@ export default function InboxPage() {
             const token = getIDToken();
             if (token) {
               setIdToken(token);
-              // 未返信一覧を取得
-              await fetchQuestions(token);
+              // 会話一覧を取得
+              await fetchConversations(token);
             }
           } catch (profileError) {
             console.error('プロフィール取得エラー:', profileError);
@@ -72,24 +82,24 @@ export default function InboxPage() {
     init();
   }, []);
 
-  const fetchQuestions = async (token: string) => {
+  const fetchConversations = async (token: string) => {
     try {
       setLoading(true);
-      const res = await fetch('/api/questions?status=unreplied', {
+      const res = await fetch('/api/conversations?has_unreplied=true', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
       if (!res.ok) {
-        throw new Error('Failed to fetch questions');
+        throw new Error('Failed to fetch conversations');
       }
 
       const data = await res.json();
-      setQuestions(data.questions || []);
+      setConversations(data.conversations || []);
     } catch (err) {
-      console.error('質問取得エラー:', err);
-      setError('質問の取得に失敗しました');
+      console.error('会話取得エラー:', err);
+      setError('会話の取得に失敗しました');
     } finally {
       setLoading(false);
     }
@@ -181,37 +191,64 @@ export default function InboxPage() {
         )}
 
         <Card className="p-6">
-          {questions.length === 0 ? (
+          {conversations.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-gray-600 mb-4">未返信の質問はありません</p>
+              <p className="text-gray-600 mb-4">未返信の会話はありません</p>
               <p className="text-sm text-gray-500">質問が届くとここに表示されます</p>
             </div>
           ) : (
             <div className="space-y-4">
-              {questions.map((question) => (
+              {conversations.map((conversation) => (
                 <Link
-                  key={question.id}
-                  href={`/liff/thread/${question.id}`}
+                  key={conversation.customer.id}
+                  href={`/liff/conversation/${conversation.customer.id}`}
                   className="block rounded-lg border border-gray-200 bg-white p-4 hover:bg-gray-50 transition-colors"
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="mb-2 flex items-center gap-2">
-                        <span className="font-semibold text-gray-900">
-                          {question.customer?.name || '名前不明'}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {formatTimeAgo(question.created_at)}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 line-clamp-2">
-                        {question.content_text || '（テキストなし）'}
-                      </p>
+                  <div className="flex items-start gap-3">
+                    {/* アバター */}
+                    <div className="flex-shrink-0">
+                      {conversation.customer.profile_image_url ? (
+                        <img
+                          src={conversation.customer.profile_image_url}
+                          alt={conversation.customer.name || ''}
+                          className="h-12 w-12 rounded-full"
+                        />
+                      ) : (
+                        <div className="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center">
+                          <span className="text-gray-500 text-lg">
+                            {conversation.customer.name?.charAt(0) || '?'}
+                          </span>
+                        </div>
+                      )}
                     </div>
-                    <div className="ml-4">
-                      <span className="inline-flex items-center rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-800">
-                        未返信
-                      </span>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-semibold text-gray-900 truncate">
+                          {conversation.customer.name || '名前不明'}
+                        </span>
+                        {conversation.unreplied_count > 0 && (
+                          <span className="inline-flex items-center rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-800 ml-2 flex-shrink-0">
+                            {conversation.unreplied_count}
+                          </span>
+                        )}
+                      </div>
+                      {conversation.latest_message && (
+                        <>
+                          <p className="text-sm text-gray-600 line-clamp-1 mb-1">
+                            {conversation.latest_message.content_text || '（テキストなし）'}
+                          </p>
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <span>{formatTimeAgo(conversation.latest_message.created_at)}</span>
+                            {conversation.last_replied_at && (
+                              <>
+                                <span>•</span>
+                                <span>最終返信: {formatTimeAgo(conversation.last_replied_at)}</span>
+                              </>
+                            )}
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </Link>
