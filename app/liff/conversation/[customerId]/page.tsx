@@ -36,6 +36,7 @@ type Template = {
   title: string;
   content: string;
   category: string;
+  variables?: string[] | null; // テンプレート変数の配列
 };
 
 type ConversationData = {
@@ -142,9 +143,33 @@ export default function ConversationPage() {
   const handleTemplateSelect = (templateId: string) => {
     setSelectedTemplateId(templateId);
     const template = templates.find((t) => t.id === templateId);
-    if (template) {
-      // TODO: 変数の自動差し込み（{name}など）
-      setReplyText(template.content);
+    if (template && conversation) {
+      // テンプレートの変数を動的に処理
+      let processedContent = template.content;
+      
+      // 変数のリストを取得（JSON配列またはnull）
+      const templateVariables = template.variables || [];
+      
+      // 各変数を処理
+      templateVariables.forEach((variable) => {
+        const placeholder = `{${variable}}`;
+        
+        // 基本的な変数は自動置換
+        switch (variable) {
+          case 'name':
+            if (conversation.customer.name) {
+              processedContent = processedContent.replace(new RegExp(`\\{${variable}\\}`, 'g'), conversation.customer.name);
+            }
+            break;
+          // その他の変数はプレースホルダーのまま残す（ユーザーが手動編集できるように）
+          default:
+            // 変数名を日本語に変換して説明を追加（オプション）
+            // 例: {answer_content} → {answer_content: 回答内容を入力してください}
+            break;
+        }
+      });
+      
+      setReplyText(processedContent);
     }
   };
 
