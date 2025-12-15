@@ -165,8 +165,10 @@ export default function ConversationPage() {
         }
       });
       
-      // \nを実際の改行文字として処理（テキストエリアでは自動的に処理されるが、明示的に処理）
-      // テキストエリアにはそのまま設定すれば、\nが改行として表示される
+      // データベースから取得した文字列に\nが含まれている場合、実際の改行文字に変換
+      // エスケープされた\n文字列を改行文字に変換（既存データ対応）
+      processedContent = processedContent.replace(/\\n/g, '\n');
+      
       setReplyText(processedContent);
     }
   };
